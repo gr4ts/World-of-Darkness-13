@@ -130,10 +130,10 @@ SAVEFILE UPDATING/VERSIONING - 'Simplified', or rather, more coder-friendly ~Car
 
 
 
-/datum/preferences/proc/load_path(ckey,filename="preferences.sav")
+/datum/preferences/proc/load_path(ckey,filename="preferences.json")
 	if(!ckey)
 		return
-	path = "data/player_saves/[ckey[1]]/[ckey]/[filename]"
+	path = "data/player_saves/[ckey[1]]/[ckey]/simple/[filename]"
 
 /datum/preferences/proc/load_preferences()
 	if(!path)
@@ -332,44 +332,39 @@ SAVEFILE UPDATING/VERSIONING - 'Simplified', or rather, more coder-friendly ~Car
 		return FALSE
 	if(!fexists(path))
 		return FALSE
-	var/savefile/S = new /savefile(path)
-	if(!S)
-		return FALSE
-	S.cd = "/"
+	var/datum/json_savefile/our_save = new(path)
 	if(!slot)
 		slot = default_slot
 	slot = sanitize_integer(slot, 1, max_save_slots, initial(default_slot))
 	if(slot != default_slot)
 		default_slot = slot
-		WRITE_FILE(S["default_slot"] , slot)
+		our_save.set_entry("default_slot", slot)
 
-	S.cd = "/character[slot]"
-	var/needs_update = savefile_needs_update(S)
-	if(needs_update == -2)		//fatal, can't load any data
-		return FALSE
+	var/datum/json_savefile/our_charsheet = new("data/player_saves/b/bison/simple/character[slot]")
+
 
 	//Species
 	var/species_id
-	READ_FILE(S["species"], species_id)
+	species_id = our_charsheet.get_entry("species_id", "human")
 	if(species_id)
 		var/newtype = GLOB.species_list[species_id]
 		if(newtype)
 			pref_species = new newtype
 
 
-	var/clane_id
-	READ_FILE(S["clane"], clane_id)
+	var/clane_id = our_charsheet.get_entry("clane")
 	if(clane_id)
 		var/newtype = GLOB.clanes_list[clane_id]
 		if(newtype)
 			clane = new newtype
 
-	var/auspice_id
-	READ_FILE(S["auspice"], auspice_id)
+	var/auspice_id = our_charsheet.get_entry("auspice")
 	if(auspice_id)
 		var/newtype = GLOB.auspices_list[auspice_id]
 		if(newtype)
 			auspice = new newtype
+
+	#warn "stop here cuz i gotta sleep soon"
 
 	READ_FILE(S["breed"], breed)
 	READ_FILE(S["tribe"], tribe)
@@ -487,11 +482,6 @@ SAVEFILE UPDATING/VERSIONING - 'Simplified', or rather, more coder-friendly ~Car
 
 	//Quirks
 	READ_FILE(S["all_quirks"], all_quirks)
-
-	//try to fix any outdated data if necessary
-	//preference updating will handle saving the updated data for us.
-	if(needs_update >= 0)
-		update_character(needs_update, S)		//needs_update == savefile_version if we need an update (positive integer)
 
 	//Sanitize
 	real_name = reject_bad_name(real_name)
